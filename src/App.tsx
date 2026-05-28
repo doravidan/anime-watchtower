@@ -5,6 +5,7 @@ import {
   Clock3,
   ExternalLink,
   Loader2,
+  Play,
   Plus,
   Search,
   Sparkles,
@@ -53,6 +54,7 @@ type TrackedShow = AniMedia & {
   userStatus: UserStatus
   subtitlePreference: SubtitlePreference
   hebrewSourceUrl?: string
+  playerUrlTemplate?: string
   notes?: string
   updatedAt: string
 }
@@ -85,6 +87,14 @@ type CustomSource = {
 }
 
 type TrendingWindow = 'day' | 'week' | 'month'
+
+type PlayerState = {
+  title: string
+  episode?: number
+  url: string
+  embedUrl: string
+  kind: 'iframe' | 'video'
+}
 
 const STORAGE_KEY = 'anime-watchtower.watchlist.v1'
 const SOURCES_STORAGE_KEY = 'anime-watchtower.custom-sources.v1'
@@ -295,24 +305,55 @@ function normalizeUrl(url?: string) {
   return `https://${trimmed}`
 }
 
+function buildTemplateUrl(template: string | undefined, title: string, episode?: number) {
+  const trimmed = template?.trim()
+  if (!trimmed) return ''
+  const encodedTitle = encodeURIComponent(title)
+  const encodedEpisode = encodeURIComponent(String(episode || ''))
+  const fallbackQuery = encodeURIComponent(`${title} ${episode ? `episode ${episode}` : ''}`.trim())
+  return normalizeUrl(
+    trimmed
+      .replaceAll('{title}', encodedTitle)
+      .replaceAll('{query}', fallbackQuery)
+      .replaceAll('{episode}', encodedEpisode),
+  )
+}
+
+function getEmbeddablePlayer(url: string) {
+  const normalized = normalizeUrl(url)
+  if (!normalized) return null
+
+  try {
+    const parsed = new URL(normalized)
+    const host = parsed.hostname.replace(/^www\./, '')
+    const isYoutube = host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be' || host === 'youtube-nocookie.com'
+
+    if (isYoutube) {
+      const videoId = host === 'youtu.be'
+        ? parsed.pathname.slice(1).split('/')[0]
+        : parsed.searchParams.get('v') || parsed.pathname.match(/\/(embed|shorts|live)\/([^/?#]+)/)?.[2]
+
+      if (videoId) {
+        return { embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}`, kind: 'iframe' as const }
+      }
+    }
+
+    if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(parsed.pathname)) {
+      return { embedUrl: normalized, kind: 'video' as const }
+    }
+
+    return { embedUrl: normalized, kind: 'iframe' as const }
+  } catch {
+    return null
+  }
+}
+
 function createLocalId() {
   return globalThis.crypto?.randomUUID?.() ?? `source-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function buildCustomSourceUrl(source: CustomSource, title: string, episode?: number) {
-  const encodedTitle = encodeURIComponent(title)
-  const encodedEpisode = encodeURIComponent(String(episode || ''))
-  const fallbackQuery = encodeURIComponent(`${title} ${episode ? `episode ${episode}` : ''}`.trim())
-  const template = source.urlTemplate.trim()
-
-  if (!template) return ''
-
-  const withTokens = template
-    .replaceAll('{title}', encodedTitle)
-    .replaceAll('{query}', fallbackQuery)
-    .replaceAll('{episode}', encodedEpisode)
-
-  return normalizeUrl(withTokens)
+  return buildTemplateUrl(source.urlTemplate, title, episode)
 }
 
 function getStreamingLinks(media: AniMedia) {
@@ -448,6 +489,7 @@ function App() {
   const [isTrendingLoading, setIsTrendingLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [nowTick, setNowTick] = useState(BOOT_NOW)
+  const [player, setPlayer] = useState<PlayerState | null>(null)
 
   const watchlistIds = useMemo(() => watchlist.map((show) => show.id).join(','), [watchlist])
   const activeTrendingConfig = trendingWindowLabels[trendingWindow]
@@ -588,6 +630,25 @@ function App() {
     setCustomSources((current) => current.filter((source) => source.id !== id))
   }
 
+  function openPlayer(show: TrackedShow, episode?: number) {
+    const title = getTitle(show)
+    const url = buildTemplateUrl(show.playerUrlTemplate || show.hebrewSourceUrl, title, episode)
+    const embed = getEmbeddablePlayer(url)
+
+    if (!embed) {
+      setError('כדי לצפות בתוך הדשבורד צריך להדביק קישור נגן חוקי/Embed בכרטיס הסדרה')
+      return
+    }
+
+    setPlayer({
+      title,
+      episode,
+      url,
+      embedUrl: embed.embedUrl,
+      kind: embed.kind,
+    })
+  }
+
   return (
     <main className="app-shell" dir="rtl">
       <section className="hero-panel">
@@ -659,6 +720,34 @@ function App() {
       </section>
 
       {error && <div className="error-banner">{error}</div>}
+
+      {player && (
+        <section className="panel player-panel" aria-label="נגן פרק פנימי">
+          <div className="section-heading">
+            <div>
+              <h2>נגן פרק בדשבורד</h2>
+              <span>{player.title}{player.episode ? ` · פרק ${player.episode}` : ''}</span>
+            </div>
+            <button type="button" className="secondary-button compact-button" onClick={() => setPlayer(null)}>סגור נגן</button>
+          </div>
+          <div className="player-frame">
+            {player.kind === 'video' ? (
+              <video controls src={player.embedUrl} title={player.title} />
+            ) : (
+              <iframe
+                src={player.embedUrl}
+                title={`${player.title} ${player.episode ? `פרק ${player.episode}` : ''}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            )}
+          </div>
+          <p className="player-note">
+            הנגן מציג רק קישורים חוקיים שאתה מזין או מקורות רשמיים שתומכים ב־Embed. אם האתר חוסם הטמעה, השתמש בכפתור 
+            <a href={player.url} target="_blank" rel="noreferrer">פתח מקור חיצוני</a>.
+          </p>
+        </section>
+      )}
 
       <section className="panel trending-panel">
         <div className="section-heading">
@@ -747,7 +836,7 @@ function App() {
         <div className="section-heading">
           <div>
             <h2>מקורות צפייה אישיים</h2>
-            <span>הוסף מקורות שאתה רוצה שיופיעו לכל פרק. תומך ב־{'{title}'}, {'{episode}'} ו־{'{query}'} בכתובת.</span>
+            <span>הוסף מקורות וקישורי נגן חוקיים. תומך ב־{'{title}'}, {'{episode}'} ו־{'{query}'} בכתובת.</span>
           </div>
         </div>
         <div className="source-builder">
@@ -772,7 +861,7 @@ function App() {
           </button>
         </div>
         <p className="source-help">
-          דוגמאות: <code>https://site.com/search?q={'{query}'}</code> או <code>https://site.com/anime/{'{title}'}/episode-{'{episode}'}</code>
+          דוגמאות: <code>https://site.com/search?q={'{query}'}</code>, קישור YouTube חוקי, או Embed אישי כמו <code>https://site.com/embed/{'{title}'}/{'{episode}'}</code>
         </p>
         {customSources.length > 0 && (
           <div className="custom-source-list">
@@ -883,9 +972,26 @@ function App() {
                           placeholder="הדבק קישור או השאר ריק אם מחכה לתרגום"
                         />
                       </label>
+                      <label className="wide">
+                        קישור נגן פנימי חוקי / Embed לפרק
+                        <input
+                          value={show.playerUrlTemplate || ''}
+                          onChange={(event) => updateShow(show.id, { playerUrlTemplate: event.target.value })}
+                          placeholder="YouTube / mp4 / embed; אפשר להשתמש ב־{episode} ו־{query}"
+                        />
+                      </label>
                     </div>
 
                     <div className="links-row">
+                      {(show.playerUrlTemplate || show.hebrewSourceUrl) && (
+                        <button
+                          type="button"
+                          className="inline-player-button"
+                          onClick={() => openPlayer(show, show.nextAiringEpisode?.episode || show.userEpisode + 1)}
+                        >
+                          <Play size={14} /> נגן בדשבורד
+                        </button>
+                      )}
                       {watchLinks.length ? (
                         watchLinks.map((link) => (
                           <a
@@ -931,6 +1037,11 @@ function App() {
                       <span>פרק {item.episode}</span>
                       <small>{formatDateTime(item.airingAt)} · {formatCountdown(item.airingAt)}</small>
                       <div className="episode-watch-row">
+                        {trackedShow?.playerUrlTemplate && (
+                          <button type="button" className="watch-link player" onClick={() => openPlayer(trackedShow, item.episode)}>
+                            <Play size={12} /> נגן
+                          </button>
+                        )}
                         {episodeLinks.length ? (
                           episodeLinks.map((link) => (
                             <a

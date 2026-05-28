@@ -18,6 +18,7 @@ https://doravidan.github.io/anime-watchtower/
   - השבוע — AniList `POPULARITY_DESC`
   - החודש — AniList `SCORE_DESC` עם סף פופולריות
 - מנהל מקורות צפייה אישיים עם templates של `{title}`, `{episode}`, `{query}`.
+- נגן פנימי בדשבורד לקישורי YouTube/Embed/וידאו חוקיים שהמשתמש מזין, עם fallback לפתיחה חיצונית כשאתר חוסם הטמעה.
 - קישורי גילוי חוקיים/חינמיים כשזמין: YouTube רשמי, Tubi, Pluto TV, Plex Free, RetroCrush.
 
 ## פיתוח
