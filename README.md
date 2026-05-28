@@ -1,73 +1,46 @@
-# React + TypeScript + Vite
+# Anime Watchtower
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+דשבורד אנימה בעברית/RTL למעקב אחרי סדרות, פרקים, לוח שידורים ומקורות צפייה אישיים.
 
-Currently, two official plugins are available:
+## Live
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+https://doravidan.github.io/anime-watchtower/
 
-## React Compiler
+## מה יש בפנים
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- חיפוש אנימה דרך AniList GraphQL.
+- הוספה לרשימת מעקב עם שמירה מקומית בדפדפן (`localStorage`).
+- כרטיסי סדרות עם סטטוס, פרק הבא וספירה חיה.
+- התקדמות צפייה אישית: פרק נוכחי, סטטוס צפייה, עדיפות כתוביות ושם עברי ידני.
+- לוח שבועי לפי `Asia/Jerusalem`.
+- איזור **הכי נצפים עכשיו** עם פילטרים:
+  - היום — AniList `TRENDING_DESC`
+  - השבוע — AniList `POPULARITY_DESC`
+  - החודש — AniList `SCORE_DESC` עם סף פופולריות
+- מנהל מקורות צפייה אישיים עם templates של `{title}`, `{episode}`, `{query}`.
+- קישורי גילוי חוקיים/חינמיים כשזמין: YouTube רשמי, Tubi, Pluto TV, Plex Free, RetroCrush.
 
-## Expanding the ESLint configuration
+## פיתוח
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## בדיקות ובנייה
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint
+npm run build
 ```
+
+## Deploy
+
+האתר נפרס דרך GitHub Pages באמצעות workflow ב־`.github/workflows/pages.yml`.
+
+כל push ל־`main` מריץ build ומעלה את `dist/` ל־GitHub Pages.
+
+## מקורות נתונים
+
+- AniList GraphQL — metadata, search, trending, popularity, score, next airing episode, weekly airing schedules, external links.
+- מקורות הצפייה האישיים נשמרים מקומית אצל המשתמש. אין אינטגרציה עם אתרי פיראטיות ואין הבטחה לזמינות כתוביות בעברית.
